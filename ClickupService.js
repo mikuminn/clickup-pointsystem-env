@@ -176,10 +176,11 @@ function updateTotalCurrentSP(
 
 function calculateProgressSp(status, sp) {
   const statusMultiplier = {
-    'to do': 0,
-    'in progress': 0.1,
-    'processed': 0.5,
-    'complete': 1
+    '未対応': 0,
+    '作業中': 0.1,
+    '作業完了': 0.5,
+    'レビュー済み': 1,
+    '完了': 1
   };
 
   return sp * (statusMultiplier[status] || 0);
