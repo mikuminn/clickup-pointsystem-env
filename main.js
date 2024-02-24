@@ -22,3 +22,16 @@ function doGet() {
   output.setContent(response.getContentText());
   return output;
 }
+
+function webhookClickupChangedStatus(param) {
+  ClickupService.updateTotalCurrentSP(
+    taskId,
+    customFieldId,
+    specificCfId,
+    totalCurrentSpCfId,
+    totalSpId,
+    totalImportanceId,
+    importanceCfId,
+    spCfId,
+  );
+}
