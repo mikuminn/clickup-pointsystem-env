@@ -38,4 +38,6 @@ function getTaskCustomField() {
     });
     Logger.log("サブメイン"+ JSON.stringify(subtaskDetails));
   });
+  Logger.log("総重要度:"+ totalImportance);
+  return totalImportance;
 }
