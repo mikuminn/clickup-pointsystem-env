@@ -52,8 +52,8 @@ function updateSubtaskCustomFields(clickupApiKey, taskId) {
     return;
   }
 
-  const totalspoopointId = '0d7a032b-6ccc-4633-934b-d7078c1ded9d';
-  let totalspoopoint = getCustomFieldValue(taskDetails.custom_fields, totalspoopointId);
+  const totalSpId = '0d7a032b-6ccc-4633-934b-d7078c1ded9d';
+  let totalSp = getCustomFieldValue(taskDetails.custom_fields, totalSpId);
   const totalimportanceId = 'df2fe57b-7678-4b44-971d-fe9acf87e8d1';
   let totalimportance = getCustomFieldValue(taskDetails.custom_fields, totalimportanceId);
 
@@ -62,7 +62,7 @@ function updateSubtaskCustomFields(clickupApiKey, taskId) {
     return;
   }
 
-  const spoopointPerImportance = totalspoopoint / totalimportance;
+  const spPerImportance = totalSp / totalimportance;
 
   if (!taskDetails.subtasks) {
     console.log("No subtasks found or 'subtasks' key not present in response.");
@@ -78,10 +78,10 @@ function updateSubtaskCustomFields(clickupApiKey, taskId) {
 
     const importanceCustomFieldId = 'c195ffbd-6798-46d5-8792-122b1d9a3dbf';
     let eachImportance = getCustomFieldValue(subtaskDetails.custom_fields, importanceCustomFieldId);
-    let eachSpoopoint = eachImportance * spoopointPerImportance;
-    const spoopointCustomFieldId = '7c7d79c6-ac5a-40b2-81bb-185097a3c642';
-    const updateUrl = `https://api.clickup.com/api/v2/task/${subtask.id}/field/${spoopointCustomFieldId}`;
-    const data = JSON.stringify({ "value": eachSpoopoint });
+    let eachSp = eachImportance * spPerImportance;
+    const spCustomFieldId = '7c7d79c6-ac5a-40b2-81bb-185097a3c642';
+    const updateUrl = `https://api.clickup.com/api/v2/task/${subtask.id}/field/${spCustomFieldId}`;
+    const data = JSON.stringify({ "value": eachSp });
 
     const updateResponse = UrlFetchApp.fetch(updateUrl, {
       method: 'POST',
@@ -109,10 +109,10 @@ function updateTotalCurrentSP(
   clickupApiKey,
   taskId,
   totalCurrentSpCustomFieldId,
-  totalSpoopointId,
+  totalSpId,
   totalImportanceId,
   importanceCustomFieldId,
-  spoopointCustomFieldId,
+  spCustomFieldId,
 ) {
   const headers = {
     'Authorization': 'Bearer ' + clickupApiKey,
@@ -128,7 +128,7 @@ function updateTotalCurrentSP(
     return;
   }
 
-  let totalSpoopoint = getCustomFieldValue(task.custom_fields, totalSpoopointId);
+  let totalSp = getCustomFieldValue(task.custom_fields, totalSpId);
   let totalImportance = getCustomFieldValue(task.custom_fields, totalImportanceId);
 
   if (totalImportance === 0) {
@@ -136,7 +136,7 @@ function updateTotalCurrentSP(
     return;
   }
 
-  const spoopointPerImportance = totalSpoopoint / totalImportance;
+  const spPerImportance = totalSp / totalImportance;
   let totalCurrentSp = 0;
 
   if (!task.subtasks) {
@@ -152,10 +152,10 @@ function updateTotalCurrentSP(
     if (!subtaskData.status) return;
 
     let eachImportance = getCustomFieldValue(subtaskData.custom_fields, importanceCustomFieldId);
-    let eachSpoopoint = eachImportance * spoopointPerImportance;
-    let progressSpoopoint = calculateProgressSpoopoint(subtaskData.status.status, eachSpoopoint);
+    let eachSp = eachImportance * spPerImportance;
+    let progressSp = calculateProgressSp(subtaskData.status.status, eachSp);
 
-    totalCurrentSp += progressSpoopoint;
+    totalCurrentSp += progressSp;
   });
 
   const updateUrl = `https://api.clickup.com/api/v2/task/${taskId}/field/${totalCurrentSpCustomFieldId}`;
@@ -174,7 +174,7 @@ function updateTotalCurrentSP(
   }
 }
 
-function calculateProgressSpoopoint(status, spoopoint) {
+function calculateProgressSp(status, sp) {
   const statusMultiplier = {
     'to do': 0,
     'in progress': 0.1,
@@ -182,5 +182,5 @@ function calculateProgressSpoopoint(status, spoopoint) {
     'complete': 1
   };
 
-  return spoopoint * (statusMultiplier[status] || 0);
+  return sp * (statusMultiplier[status] || 0);
 }
