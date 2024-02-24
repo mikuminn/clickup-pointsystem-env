@@ -101,10 +101,86 @@ function updateSubtaskCustomFields(clickupApiKey, taskId) {
  * 指定の fieldId のカスタムフィールドの値を取得するヘルパー関数
  */
 function getCustomFieldValue(customFields, fieldId) {
-  for (let i = 0; i < customFields.length; i++) {
-    if (customFields[i].id === fieldId) {
-      return parseInt(customFields[i].value || '0');
-    }
+  const field = customFields.find(field => field.id === fieldId);
+  return field ? parseInt(field.value || '0') : 0;
+}
+
+function updateTotalCurrentSP(
+  clickupApiKey,
+  taskId,
+  totalCurrentSpCustomFieldId,
+  totalSpoopointId,
+  totalImportanceId,
+  importanceCustomFieldId,
+  spoopointCustomFieldId,
+) {
+  const headers = {
+    'Authorization': 'Bearer ' + clickupApiKey,
+    'Content-Type': 'application/json'
+  };
+
+  const taskUrl = `https://api.clickup.com/api/v2/task/${taskId}?include_subtasks=true`;
+  const taskResponse = UrlFetchApp.fetch(taskUrl, { headers });
+  const task = JSON.parse(taskResponse.getContentText());
+
+  if (!task.custom_fields) {
+    console.log("Custom fields not found in task.");
+    return;
   }
-  return 0; // フィールドが見つからない場合は0を返す
+
+  let totalSpoopoint = getCustomFieldValue(task.custom_fields, totalSpoopointId);
+  let totalImportance = getCustomFieldValue(task.custom_fields, totalImportanceId);
+
+  if (totalImportance === 0) {
+    console.log("Total importance is zero, cannot divide by zero.");
+    return;
+  }
+
+  const spoopointPerImportance = totalSpoopoint / totalImportance;
+  let totalCurrentSp = 0;
+
+  if (!task.subtasks) {
+    console.log("No subtasks found.");
+    return;
+  }
+
+  task.subtasks.forEach(subtask => {
+    const subtaskUrl = `https://api.clickup.com/api/v2/task/${subtask.id}`;
+    const subtaskResponse = UrlFetchApp.fetch(subtaskUrl, { headers });
+    const subtaskData = JSON.parse(subtaskResponse.getContentText());
+
+    if (!subtaskData.status) return;
+
+    let eachImportance = getCustomFieldValue(subtaskData.custom_fields, importanceCustomFieldId);
+    let eachSpoopoint = eachImportance * spoopointPerImportance;
+    let progressSpoopoint = calculateProgressSpoopoint(subtaskData.status.status, eachSpoopoint);
+
+    totalCurrentSp += progressSpoopoint;
+  });
+
+  const updateUrl = `https://api.clickup.com/api/v2/task/${taskId}/field/${totalCurrentSpCustomFieldId}`;
+  const data = JSON.stringify({ "value": totalCurrentSp });
+
+  const updateResponse = UrlFetchApp.fetch(updateUrl, {
+    method: 'POST',
+    headers,
+    payload: data
+  });
+
+  if (updateResponse.getResponseCode() === 200) {
+    console.log("Custom field updated successfully.");
+  } else {
+    console.log("Error occurred: " + updateResponse.getContentText());
+  }
+}
+
+function calculateProgressSpoopoint(status, spoopoint) {
+  const statusMultiplier = {
+    'to do': 0,
+    'in progress': 0.1,
+    'processed': 0.5,
+    'complete': 1
+  };
+
+  return spoopoint * (statusMultiplier[status] || 0);
 }
