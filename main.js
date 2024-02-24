@@ -1,17 +1,18 @@
+import ClickupService from "./ClickupService";
 const p = PropertiesService.getScriptProperties();
 
 // APIキー や token 周り
 const clickupApiKey = p.getProperty('CLICKUP_API_KEY');
+const slackToken = p.getProperty('SLACK_TOKEN');
 
 // Clickup の タスクID、カスタムフィールドIDを設定
 const taskId = p.getProperty('TASK_ID');
-const customFieldId = p.getProperty('CF_ID');
-const specificCfId = p.getProperty('SPECIFIC_CF_ID');
+const totalSpId = p.getProperty('TOTAL_SP_CF_ID');
 const totalCurrentSpCfId = p.getProperty('TOTAL_CURRENT_SP_CF_ID');
-const totalSpId = p.getProperty('TOTAL_CURRENT_SP_CF_ID');
-const totalImportanceId = p.getProperty('TOTAL_IMPORTANCE_CF_ID');
 const importanceCfId = p.getProperty('IMPORTANCE_CF_ID');
-const spCfId = p.getProperty('SP_CF_ID');
+
+// Slack の チャンネルなどなど
+const channelId=  p.getProperty('CHANNEL_ID');
 
 function doGet() {
   var response = UrlFetchApp.fetch("https://zipcloud.ibsnet.co.jp/api/search?zipcode=106-0032");
@@ -23,15 +24,16 @@ function doGet() {
   return output;
 }
 
-function webhookClickupChangedStatus(param) {
-  ClickupService.updateTotalCurrentSP(
+/**
+ * Clickupのステータスチェンジ時に送られる想定
+ */
+function doPost(param) {
+  const report = ClickupService.updateTotalCurrentSp(
+    clickupApiKey,
     taskId,
-    customFieldId,
-    specificCfId,
     totalCurrentSpCfId,
     totalSpId,
-    totalImportanceId,
     importanceCfId,
-    spCfId,
   );
+  SlackService.postToChannel(slackToken, channelId, "", report)
 }

@@ -33,87 +33,30 @@ function getTaskCustomField(clickupApiKey, taskId, specificCustomFieldId) {
   return totalImportance;
 }
 
-/** 
- * サブタスクのカスタムフィールドをアップデートする
- */
-function updateSubtaskCustomFields(clickupApiKey, taskId) {
-  const headers = {
-    'Authorization': 'Bearer ' + clickupApiKey,
-    'Content-Type': 'application/json'
-  };
-
-  const tasksUrl = `https://api.clickup.com/api/v2/task/${taskId}?include_subtasks=true`;
-
-  const taskDetailsResponse = UrlFetchApp.fetch(tasksUrl, { headers: headers });
-  const taskDetails = JSON.parse(taskDetailsResponse.getContentText());
-
-  if (!taskDetails.custom_fields) {
-    console.log("No custom fields found in task details.");
-    return;
-  }
-
-  const totalSpId = '0d7a032b-6ccc-4633-934b-d7078c1ded9d';
-  let totalSp = getCustomFieldValue(taskDetails.custom_fields, totalSpId);
-  const totalimportanceId = 'df2fe57b-7678-4b44-971d-fe9acf87e8d1';
-  let totalimportance = getCustomFieldValue(taskDetails.custom_fields, totalimportanceId);
-
-  if (totalimportance === 0) {
-    console.log("Total importance is zero, cannot divide by zero.");
-    return;
-  }
-
-  const spPerImportance = totalSp / totalimportance;
-
-  if (!taskDetails.subtasks) {
-    console.log("No subtasks found or 'subtasks' key not present in response.");
-    return;
-  }
-
-  taskDetails.subtasks.forEach(subtask => {
-    const subtaskUrl = `https://api.clickup.com/api/v2/task/${subtask.id}`;
-    const subtaskResponse = UrlFetchApp.fetch(subtaskUrl, { headers: headers });
-    const subtaskDetails = JSON.parse(subtaskResponse.getContentText());
-
-    if (!subtaskDetails.custom_fields) return;
-
-    const importanceCustomFieldId = 'c195ffbd-6798-46d5-8792-122b1d9a3dbf';
-    let eachImportance = getCustomFieldValue(subtaskDetails.custom_fields, importanceCustomFieldId);
-    let eachSp = eachImportance * spPerImportance;
-    const spCustomFieldId = '7c7d79c6-ac5a-40b2-81bb-185097a3c642';
-    const updateUrl = `https://api.clickup.com/api/v2/task/${subtask.id}/field/${spCustomFieldId}`;
-    const data = JSON.stringify({ "value": eachSp });
-
-    const updateResponse = UrlFetchApp.fetch(updateUrl, {
-      method: 'POST',
-      headers: headers,
-      payload: data
-    });
-
-    if (updateResponse.getResponseCode() === 200) {
-      console.log("カスタムフィールドを更新しました。");
-    } else {
-      console.log("エラーが発生しました: " + updateResponse.getContentText());
-    }
-  });
-}
-    
 /*
  * 指定の fieldId のカスタムフィールドの値を取得するヘルパー関数
  */
-function getCustomFieldValue(customFields, fieldId) {
-  const field = customFields.find(field => field.id === fieldId);
+function getCfValue(cfs, fieldId) {
+  const field = cfs.find(field => field.id === fieldId);
   return field ? parseInt(field.value || '0') : 0;
 }
 
-function updateTotalCurrentSP(
-  clickupApiKey,
-  taskId,
-  totalCurrentSpCustomFieldId,
-  totalSpId,
-  totalImportanceId,
-  importanceCustomFieldId,
-  spCustomFieldId,
-) {
+function calculateProgressSp(status, sp) {
+  const statusMultiplier = {
+    '未対応': 0,
+    '作業中': 0.1,
+    '作業完了': 0.5,
+    'レビュー済み': 1,
+    '完了': 1
+  };
+
+  return sp * (statusMultiplier[status] || 0);
+}
+
+/** 
+ * サブタスクのカスタムフィールドをアップデートする
+ */
+function updateTotalCurrentSp(clickupApiKey, taskId, totalSpId, totalCurrentSpCfId, importanceCfId) {
   const headers = {
     'Authorization': 'Bearer ' + clickupApiKey,
     'Content-Type': 'application/json'
@@ -128,8 +71,8 @@ function updateTotalCurrentSP(
     return;
   }
 
-  let totalSp = getCustomFieldValue(task.custom_fields, totalSpId);
-  let totalImportance = getCustomFieldValue(task.custom_fields, totalImportanceId);
+  let totalSp = getCfValue(task.custom_fields, totalSpId);
+  let totalImportance = getTotalImportance(clickupApiKey, taskId, importanceCfId);
 
   if (totalImportance === 0) {
     console.log("Total importance is zero, cannot divide by zero.");
@@ -151,14 +94,14 @@ function updateTotalCurrentSP(
 
     if (!subtaskData.status) return;
 
-    let eachImportance = getCustomFieldValue(subtaskData.custom_fields, importanceCustomFieldId);
+    let eachImportance = getCfValue(subtaskData.custom_fields, importanceCfId);
     let eachSp = eachImportance * spPerImportance;
     let progressSp = calculateProgressSp(subtaskData.status.status, eachSp);
 
     totalCurrentSp += progressSp;
   });
 
-  const updateUrl = `https://api.clickup.com/api/v2/task/${taskId}/field/${totalCurrentSpCustomFieldId}`;
+  const updateUrl = `https://api.clickup.com/api/v2/task/${taskId}/field/${totalCurrentSpCfId}`;
   const data = JSON.stringify({ "value": totalCurrentSp });
 
   const updateResponse = UrlFetchApp.fetch(updateUrl, {
@@ -172,16 +115,46 @@ function updateTotalCurrentSP(
   } else {
     console.log("Error occurred: " + updateResponse.getContentText());
   }
+
+  const report = `taskId:${taskId}, 総ポイント:totalSp ,進捗ポイント: ${TotalCurrentSp}, `;
+
+  return report;
 }
 
-function calculateProgressSp(status, sp) {
-  const statusMultiplier = {
-    '未対応': 0,
-    '作業中': 0.1,
-    '作業完了': 0.5,
-    'レビュー済み': 1,
-    '完了': 1
+function getTotalImportance(
+  clickupApiKey,
+  taskId,
+  importanceCfId
+) {
+  const headers = {
+    'Authorization': 'Bearer ' + clickupApiKey,
+    'Content-Type': 'application/json'
   };
 
-  return sp * (statusMultiplier[status] || 0);
+  const taskUrl = `https://api.clickup.com/api/v2/task/${taskId}?include_subtasks=true`;
+  const taskResponse = UrlFetchApp.fetch(taskUrl, { headers: headers });
+  const task = JSON.parse(taskResponse.getContentText());
+
+  let totalImportance = 0;
+
+  if (!task.subtasks) {
+    console.log("No subtasks found or 'subtasks' key not present in response.");
+    return;
+  }
+
+  task.subtasks.forEach(subtask => {
+    const subtaskUrl = `https://api.clickup.com/api/v2/task/${subtask.id}`;
+    const subtaskResponse = UrlFetchApp.fetch(subtaskUrl, { headers: headers });
+    const subtaskData = JSON.parse(subtaskResponse.getContentText());
+
+    if (!subtaskData.custom_fields) return;
+
+    subtaskData.custom_fields.forEach(customField => {
+      if (customField.id === importanceCfId) {
+        totalImportance += parseInt(customField.value || '0');
+      }
+    });
+  });
+
+  return totalImportance;
 }

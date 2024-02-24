@@ -1,7 +1,7 @@
 /**
  * チャンネルにポストする
  */
-function postToChannel(channelId, token, timePretext, report){
+function postToChannel(token, channelId, timePretext, report){
   // Slack API を叩いてprofileを更新する
   const url = "https://slack.com/api/chat.postMessage";
   const parameter = {
