@@ -12,7 +12,7 @@ const headers = {
 // タスクの詳細を取得するURL(include_subtasks=true によりサブタスクを含める)
 const tasksUrl = `https://api.clickup.com/api/v2/task/${taskId}?include_subtasks=true`;
 
-function updateTaskCustomField() {
+function getTaskCustomField() {
   let totalImportance = 0;
   const taskDetailsResponse = UrlFetchApp.fetch(tasksUrl, { headers: headers });
   const taskDetails = JSON.parse(taskDetailsResponse.getContentText());
@@ -21,6 +21,7 @@ function updateTaskCustomField() {
     Logger.log("No subtasks found or 'subtasks' key not present in response.");
     return;
   }
+  Logger.log("タスクメイン"+ JSON.stringify(taskDetails));
 
   taskDetails.subtasks.forEach(subtask => {
     const subtaskUrl = `https://api.clickup.com/api/v2/task/${subtask.id}`;
@@ -35,23 +36,6 @@ function updateTaskCustomField() {
         totalImportance += parseInt(customField.value || '0');
       }
     });
+    Logger.log("サブメイン"+ JSON.stringify(subtaskDetails));
   });
-
-  // メインタスクのカスタムフィールドを更新するURL
-  const updateUrl = `https://api.clickup.com/api/v2/task/${taskId}/field/${customFieldId}`;
-  // 更新するデータ
-  const data = JSON.stringify({ "value": totalImportance });
-
-  // カスタムフィールドを更新
-  const updateResponse = UrlFetchApp.fetch(updateUrl, {
-    method: 'POST',
-    headers: headers,
-    payload: data
-  });
-
-  if (updateResponse.getResponseCode() === 200) {
-    Logger.log("カスタムフィールドを更新しました。");
-  } else {
-    Logger.log("エラーが発生しました: " + updateResponse.getContentText());
-  }
 }
