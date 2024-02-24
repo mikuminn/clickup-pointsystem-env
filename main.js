@@ -1,5 +1,3 @@
-import ClickupService from "./ClickupService";
-import SlackService from "./SlackService";
 const p = PropertiesService.getScriptProperties();
 
 // APIキー や token 周り
